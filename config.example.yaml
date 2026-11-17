@@ -1,0 +1,22 @@
+# subocr example config. Every key is optional; defaults shown.
+# Fractions are of the FULL frame (0 = top/left, 1 = bottom/right).
+roi: { top: 0.65, bottom: 1.0, left: 0.0, right: 1.0 }   # where subtitles can appear
+exclude: []            # areas to ignore, e.g. the player progress bar:
+                       # - { top: 0.93, bottom: 0.97, left: 0.0, right: 1.0 }
+mask:
+  strategy: outline    # only 'outline' (bright, unsaturated text) for now
+  v_min: 200           # minimum brightness of text pixels (0-255)
+  s_max: 60            # maximum saturation of text pixels (0-255)
+segmentation:
+  min_pixels: 300      # fewer text pixels than this = no subtitle
+  change_thresh: 0.3   # how different two frames' text must be to count as a new subtitle
+  hysteresis_frames: 2 # frames needed to confirm a start/end/change
+ocr:
+  engine: rapidocr
+  lang: es
+  min_confidence: 0.6  # below this an event is flagged needs_review
+post:
+  merge_similarity: 0.9
+  merge_max_gap_frames: 2
+  min_event_frames: 3
+  blocklist: ["Skip intro", "Saltar intro"]
