@@ -105,7 +105,7 @@ def write_video(path: Path, spec: SynthSpec) -> list[Fraction]:
     stream.options = {"crf": "0", "preset": "ultrafast"}
     stream.codec_context.time_base = TIME_BASE
     pts_list: list[Fraction] = []
-    slot = 0
+    slot = -1  # first frame at PTS 0
     for i in range(spec.n_frames):
         slot += 1
         if spec.vfr_drop_every and (i + 1) % spec.vfr_drop_every == 0:
