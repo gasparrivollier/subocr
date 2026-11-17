@@ -5,3 +5,4 @@ __pycache__/
 results/
 .superpowers/
 .venv/
+results_run.log
