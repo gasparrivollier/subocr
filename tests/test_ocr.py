@@ -74,3 +74,21 @@ def test_rapidocr_reads_rendered_spanish():
 @pytest.mark.slow
 def test_rapidocr_blank_image():
     assert make_engine(OcrCfg(), POST).read(np.full((100, 400), 255, np.uint8)) == OcrResult("", 0.0)
+
+
+def test_non_latin_and_punctuation_only_boxes_dropped():
+    # player icons misread as CJK glyphs, and a lone full-width comma, are not subtitle text
+    dets = [d("tiene unos 37 m", 100, 300, 140, 170), d("N 非K", 100, 160, 180, 205), d("，", 310, 330, 142, 170)]
+    assert assemble_lines(dets, POST).text == "tiene unos 37 m"
+
+
+def test_word_fragment_from_overlapping_box_collapsed():
+    r = assemble_lines([d("Primero, Yuri", 0, 100, 100, 130), d("ri Gagarin", 80, 200, 100, 130)], POST)
+    assert r.text == "Primero, Yuri Gagarin"
+    r = assemble_lines([d("es el peso del", 0, 100, 100, 130), d("el vehículo.", 85, 200, 100, 130)], POST)
+    assert r.text == "es el peso del vehículo."
+
+
+def test_fragment_kept_when_boxes_do_not_overlap():
+    r = assemble_lines([d("Yuri", 0, 50, 100, 130), d("ri Gagarin", 60, 200, 100, 130)], POST)
+    assert r.text == "Yuri ri Gagarin"

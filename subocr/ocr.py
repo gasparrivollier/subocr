@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
@@ -39,6 +40,13 @@ def is_ui_text(text: str, post: PostCfg) -> bool:
     return any(b.lower() in low for b in post.blocklist)
 
 
+def _is_subtitle_text(text: str) -> bool:
+    """Latin-script text with at least one letter or digit (drops icon glyphs and stray punctuation)."""
+    if not any(ch.isalnum() for ch in text):
+        return False
+    return all("LATIN" in unicodedata.name(ch, "LATIN") for ch in text if ch.isalpha())
+
+
 def _same_row(a_y0: float, a_y1: float, b: Detection) -> bool:
     overlap = min(a_y1, b.y1) - max(a_y0, b.y0)
     return overlap > 0.5 * min(a_y1 - a_y0, b.y1 - b.y0)
@@ -46,7 +54,7 @@ def _same_row(a_y0: float, a_y1: float, b: Detection) -> bool:
 
 def assemble_lines(dets: Sequence[Detection], post: PostCfg) -> OcrResult:
     """Drop UI boxes, group boxes into rows, order them, collapse boundary duplicates."""
-    kept = [d for d in dets if d.text.strip() and not is_ui_text(d.text, post)]
+    kept = [d for d in dets if _is_subtitle_text(d.text) and not is_ui_text(d.text, post)]
     rows: list[list[Detection]] = []
     row_y: list[tuple[float, float]] = []
     for d in sorted(kept, key=lambda d: (d.y0 + d.y1) / 2):
@@ -62,8 +70,8 @@ def assemble_lines(dets: Sequence[Detection], post: PostCfg) -> OcrResult:
         prev: Detection | None = None
         for d in sorted(row, key=lambda d: d.x0):
             parts = d.text.split()
-            if prev is not None and d.x0 < prev.x1 and words and parts and words[-1].lower() == parts[0].lower():
-                parts = parts[1:]  # same word read twice by two overlapping boxes
+            if prev is not None and d.x0 < prev.x1 and words and parts and words[-1].lower().endswith(parts[0].lower()):
+                parts = parts[1:]  # same word (or its tail) read twice by two overlapping boxes
             words.extend(parts)
             prev = d
             weighted += d.score * len(d.text)
