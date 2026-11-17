@@ -29,6 +29,7 @@ class MaskCfg:
     require_outline: bool = True
     dark_v_max: int = 60
     outline_radius_px: int = 3
+    max_stroke_px: int = 12
     open_px: int = 1
     close_px: int = 3
 
