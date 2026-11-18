@@ -6,3 +6,6 @@ results/
 .superpowers/
 .venv/
 results_run.log
+build/
+dist/
+build.log

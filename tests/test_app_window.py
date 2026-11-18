@@ -145,9 +145,12 @@ def test_selftest_json(tmp_path, monkeypatch, capsys):
     assert entry.main(["--selftest", str(video), str(tmp_path / "out")]) == 0
     data = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert data["events"] == 2 and Path(data["srt"]).exists()
+    # a windowed .exe has no console, so the result is also written to a file
+    assert json.loads((tmp_path / "out" / "selftest.json").read_text(encoding="utf-8")) == data
 
 
 def test_selftest_missing_file_exit_1(tmp_path, capsys):
     import subocr.app.main as entry
     assert entry.main(["--selftest", str(tmp_path / "nope.mp4"), str(tmp_path / "o")]) == 1
     assert "error" in json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert "error" in json.loads((tmp_path / "o" / "selftest.json").read_text(encoding="utf-8"))

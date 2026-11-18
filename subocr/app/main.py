@@ -11,14 +11,28 @@ from ..pipeline import run_pipeline
 from .paths import friendly_message
 
 
+def _emit(result: dict, out_dir: Path) -> None:
+    """Print the result and also save it: a windowed .exe on Windows has no console to print to."""
+    text = json.dumps(result)
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "selftest.json").write_text(text, encoding="utf-8")
+    except OSError:
+        pass
+    try:
+        print(text)
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 def _selftest(video: Path, out_dir: Path) -> int:
     try:
         cfg = Config()
         result = run_pipeline(video, cfg, out_dir, make_engine(cfg.ocr, cfg.post))
     except BaseException as exc:  # noqa: BLE001 - report anything as JSON, never a traceback
-        print(json.dumps({"error": f"{friendly_message(exc)} ({type(exc).__name__}: {exc})"}))
+        _emit({"error": f"{friendly_message(exc)} ({type(exc).__name__}: {exc})"}, out_dir)
         return 1
-    print(json.dumps({"events": len(result.events), "srt": str(out_dir / "subs.srt")}))
+    _emit({"events": len(result.events), "srt": str(out_dir / "subs.srt")}, out_dir)
     return 0
 
 
