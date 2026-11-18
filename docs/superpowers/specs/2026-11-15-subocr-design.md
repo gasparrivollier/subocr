@@ -134,10 +134,10 @@ The app only needs: (1) choose/upload a video file, (2) see progress,
 acceptable for the Windows build (ask again before creating/pushing).
 
 **Window UI (decided with user, 2026-11-17; mockups approved)**
-One small `tkinter` window (~520x300), four states, each with a Snoopy image
+One small PySide6 (Qt) window (~600x320; switched from `tkinter` on 2026-11-17 because the user found tkinter ugly), four states, each with a Snoopy image
 (user states copyright is not a concern, so the images ship inside the app):
 1. **Start** — sleeping Snoopy gif (`source.gif`, animated), "Drag a video here /
-   Choose video…" (button is the main path; drag-and-drop is a bonus).
+   Choose video…" (drag-and-drop onto the window works, plus the button).
 2. **Working** — typing gif (`snoopy-typing.gif`, animated), file name, stage
    text ("Scanning frames…", "Reading text… 120 of 161"), progress bar with %,
    Cancel button. Heavy work runs in a background thread; window stays responsive.
@@ -153,7 +153,7 @@ One small `tkinter` window (~520x300), four states, each with a Snoopy image
   only. Language fixed to Spanish.
 - My calls, not yet confirmed: estimated time left is shown only if reliable
   (else omitted); window code is separated from a testable progress/controller
-  layer; Pillow is the only new dependency (images and gif frames).
+  layer; PySide6-Essentials and Pillow are the UI dependencies.
 
 **Windows packaging (decided with user, 2026-11-17)**
 Audience: an individual user on their own PC (not IT-managed). Native rewrite,

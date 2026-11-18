@@ -9,7 +9,7 @@ description = "Extract burned-in subtitles from screen recordings with frame-exa
 requires-python = ">=3.12"
 dependencies = [
   "av", "opencv-python-headless", "numpy", "rapidocr", "onnxruntime",
-  "rapidfuzz", "pyyaml", "typer", "pillow",
+  "rapidfuzz", "pyyaml", "typer", "pillow", "PySide6-Essentials",
 ]
 
 [project.optional-dependencies]

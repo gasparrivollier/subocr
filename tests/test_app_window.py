@@ -1,5 +1,4 @@
 import json
-import tkinter
 from pathlib import Path
 
 import pytest
@@ -24,96 +23,106 @@ class FakeModel:
     def shutdown(self): self.calls.append(("shutdown",))
 
 
-def make_app(view=None, pick=None, reveal=None):
+@pytest.fixture(scope="module")
+def qapp():
+    from PySide6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+@pytest.fixture
+def make_app(qapp):
     from subocr.app.window import App
-    try:
-        return App(model=FakeModel(view), pick_file=pick or (lambda: None), reveal=reveal or (lambda p: None))
-    except tkinter.TclError:
-        pytest.skip("no display available for tkinter")
+    made = []
+
+    def make(view=None, pick=None, reveal=None):
+        app = App(model=FakeModel(view), pick_file=pick or (lambda: None), reveal=reveal or (lambda p: None))
+        made.append(app)
+        return app
+
+    yield make
+    for app in made:
+        app._on_close()
+        app.close()
 
 
-def text(w): return str(w.cget("text"))
+def text(w):
+    return w.toPlainText() if hasattr(w, "toPlainText") else w.text()
 
 
-def test_start_screen():
+def test_start_screen(make_app):
     app = make_app()
-    try:
-        app.update()
-        assert text(app.primary_button) == "Choose video…"
-        assert app.image_label.cget("image") != ""
-    finally:
-        app.destroy()
+    assert text(app.title_label) == "Drag a video here"
+    assert text(app.primary_button) == "Choose video…"
+    assert not app.image_label.pixmap().isNull()
+    assert app.right.property("dropzone") is True
 
 
-def test_choose_button_picks_file_and_starts():
+def test_choose_button_picks_file_and_starts(make_app):
     app = make_app(pick=lambda: V)
-    try:
-        app.primary_button.invoke()
-        assert app.model.calls == [("choose", V)]
-    finally:
-        app.destroy()
+    app.primary_button.click()
+    assert app.model.calls == [("choose", V)]
 
 
-def test_working_screen_shows_stage_and_percent():
+def test_dropped_file_starts_job_but_folders_are_ignored(make_app, tmp_path):
+    app = make_app()
+    f = tmp_path / "clip.mp4"
+    f.write_bytes(b"x")
+    app._handle_drop(tmp_path)  # a folder
+    assert app.model.calls == []
+    app._handle_drop(f)
+    assert app.model.calls == [("choose", f)]
+
+
+def test_working_screen_shows_stage_and_percent(make_app):
     app = make_app(ViewState(State.WORKING, video=V, stage="Reading text… 3 of 9 subtitles", percent=60))
-    try:
-        app.update()
-        assert text(app.title_label) == "ep1.mp4"
-        assert text(app.status_label) == "Reading text… 3 of 9 subtitles"
-        assert float(app.progress["value"]) == 60
-        assert text(app.primary_button) == "Cancel"
-        app.primary_button.invoke()
-        assert ("cancel",) in app.model.calls
-    finally:
-        app.destroy()
+    assert text(app.title_label) == "ep1.mp4"
+    assert text(app.status_label) == "Reading text… 3 of 9 subtitles"
+    assert app.progress.value() == 60
+    assert text(app.primary_button) == "Cancel"
+    app.primary_button.click()
+    assert ("cancel",) in app.model.calls
 
 
-def test_done_screen_shows_path_and_buttons():
+def test_working_title_elides_long_names(make_app):
+    long = Path("/videos/" + "very_long_name_" * 8 + ".mp4")
+    app = make_app(ViewState(State.WORKING, video=long, stage="x", percent=1))
+    assert "…" in text(app.title_label) and app.title_label.toolTip() == long.name
+
+
+def test_done_screen_shows_path_and_buttons(make_app):
     srt = Path("/videos/ep1_subtitles/subs.srt")
     shown = []
     app = make_app(ViewState(State.DONE, video=V, percent=100, srt_path=srt, n_subtitles=161), reveal=shown.append)
-    try:
-        app.update()
-        assert text(app.title_label) == "Done: 161 subtitles found"
-        assert text(app.path_label) == str(srt)
-        assert text(app.primary_button) == "Show in folder" and text(app.secondary_button) == "Another video"
-        app.primary_button.invoke()
-        assert shown == [srt]
-        app.secondary_button.invoke()
-        assert ("reset",) in app.model.calls
-    finally:
-        app.destroy()
+    assert text(app.title_label) == "Done: 161 subtitles found"
+    assert text(app.path_label) == str(srt)
+    assert text(app.primary_button) == "Show in folder" and text(app.secondary_button) == "Another video"
+    app.primary_button.click()
+    assert shown == [srt]
+    app.secondary_button.click()
+    assert ("reset",) in app.model.calls
 
 
-def test_done_zero_subtitles_text():
+def test_done_zero_subtitles_text(make_app):
     app = make_app(ViewState(State.DONE, video=V, srt_path=Path("/x/subs.srt"), n_subtitles=0,
                              message="No subtitles were found in this video."))
-    try:
-        app.update()
-        assert text(app.title_label) == "No subtitles were found in this video."
-    finally:
-        app.destroy()
+    assert text(app.title_label) == "No subtitles were found in this video."
 
 
-def test_error_screen_shows_log_path_and_show_log_reveals_it():
+def test_error_screen_shows_log_path_and_show_log_reveals_it(make_app):
     log, shown = Path("/videos/subocr.log"), []
     app = make_app(ViewState(State.ERROR, video=V, message="This file can't be opened as a video.", log_path=log),
                    reveal=shown.append)
-    try:
-        app.update()
-        assert text(app.title_label) == "Something went wrong"
-        assert text(app.status_label) == "This file can't be opened as a video."
-        assert text(app.path_label) == str(log)
-        assert text(app.primary_button) == "Show log" and text(app.secondary_button) == "Try another"
-        app.primary_button.invoke()
-        assert shown == [log]
-    finally:
-        app.destroy()
+    assert text(app.title_label) == "Something went wrong"
+    assert text(app.status_label) == "This file can't be opened as a video."
+    assert text(app.path_label) == str(log)
+    assert text(app.primary_button) == "Show log" and text(app.secondary_button) == "Try another"
+    app.primary_button.click()
+    assert shown == [log]
 
 
-def test_close_calls_shutdown():
+def test_close_calls_shutdown(make_app):
     app = make_app()
-    app._on_close()
+    app.close()
     assert ("shutdown",) in app.model.calls
 
 
