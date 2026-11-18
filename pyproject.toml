@@ -9,17 +9,20 @@ description = "Extract burned-in subtitles from screen recordings with frame-exa
 requires-python = ">=3.12"
 dependencies = [
   "av", "opencv-python-headless", "numpy", "rapidocr", "onnxruntime",
-  "rapidfuzz", "pyyaml", "typer",
+  "rapidfuzz", "pyyaml", "typer", "pillow",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pillow"]
+dev = ["pytest"]
 
 [project.scripts]
 subocr = "subocr.cli:app"
 
 [tool.setuptools]
-packages = ["subocr"]
+packages = ["subocr", "subocr.app"]
+
+[tool.setuptools.package-data]
+subocr = ["assets/*"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not slow'"
