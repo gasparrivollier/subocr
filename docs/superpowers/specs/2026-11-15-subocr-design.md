@@ -127,6 +127,59 @@ MVP code so packaging stays cheap:
 - Non-tech entry point later: double-click the .exe -> pick video -> pick
   subtitle area on a sample frame -> run -> review UI opens.
 
+**UI scope (decided with user, 2026-11-17) — SUPERSEDES the correction UI above**
+No correction/review UI: the user edits the SRT in a separate subtitle editor.
+The app only needs: (1) choose/upload a video file, (2) see progress,
+(3) locate the exported `.srt`, (4) see errors if any. Public GitHub repo is
+acceptable for the Windows build (ask again before creating/pushing).
+
+**Window UI (decided with user, 2026-11-17; mockups approved)**
+One small `tkinter` window (~520x300), four states, each with a Snoopy image
+(user states copyright is not a concern, so the images ship inside the app):
+1. **Start** — sleeping Snoopy gif (`source.gif`, animated), "Drag a video here /
+   Choose video…" (button is the main path; drag-and-drop is a bonus).
+2. **Working** — typing gif (`snoopy-typing.gif`, animated), file name, stage
+   text ("Scanning frames…", "Reading text… 120 of 161"), progress bar with %,
+   Cancel button. Heavy work runs in a background thread; window stays responsive.
+3. **Done** — sunglasses still (`images.jpg`), "Done: N subtitles found", full path
+   of the `.srt`, buttons "Show in folder" (Explorer with the file selected) and
+   "Another video".
+4. **Error** — screaming still (`44e94c…jpg`, cropped to head and tape), plain-language
+   message, details saved to `subocr.log`, buttons "Show log" and "Try another".
+- Images fill a 160x160 rectangle with cover-style cropping.
+- Output: folder next to the video named `<video name>_subtitles/` with
+  `subs.srt`, `events.csv`, `frame_index.csv`.
+- No options in the window (my call: no offset field or ROI controls); defaults
+  only. Language fixed to Spanish.
+- My calls, not yet confirmed: estimated time left is shown only if reliable
+  (else omitted); window code is separated from a testable progress/controller
+  layer; Pillow is the only new dependency (images and gif frames).
+
+**Windows packaging (decided with user, 2026-11-17)**
+Audience: an individual user on their own PC (not IT-managed). Native rewrite,
+MSI/WiX, MSIX and a hosted service were considered and rejected.
+- **Format:** PyInstaller *folder* mode (an `.exe` plus its libraries), delivered
+  as a single `.zip` the user unzips and runs. No installer for now; an Inno
+  Setup installer can be added later without changing the app.
+- **Build:** GitHub Actions `windows-latest` builds the zip on a release tag
+  (PyInstaller cannot build Windows binaries from Fedora). Needs a GitHub repo;
+  pushing it is outward-facing, so ask the user first.
+- **Self-contained and offline:** OCR models bundled inside the folder, no
+  downloads at run time (verify models load from the bundle with the network
+  off), PyAV's bundled FFmpeg only, no external binaries.
+- **Known risks, accepted:** unsigned `.exe` triggers SmartScreen and rare
+  antivirus false positives (document "More info -> Run anyway"); folder is
+  ~250-400 MB; Windows-specific issues (paths with accents/spaces, console
+  encoding) can only be tested on a real Windows machine.
+- **First version front end (my call, not yet confirmed):** drag a video onto
+  the `.exe` (or double-click and type/paste a path) -> console progress ->
+  `results` folder next to the video with `events.csv`, `subs.srt`,
+  `frame_index.csv`, then the folder opens. A local browser UI (the planned
+  correction UI) is the next step, not part of this first package.
+- **Input assumption (user premise):** footage is black screen with white
+  subtitles, sometimes a few seconds of real video/player UI first. The Disney+
+  UI exclusion preset for the intro is a separate hardening task.
+
 Design choices above stay valid; the MVP just builds a subset, with module
 boundaries kept so the deferred pieces and a friendlier front end can be
 added without rewrites.
