@@ -113,3 +113,20 @@ def test_low_confidence_flagged(synth_config, tmp_path):
     write_video(p, SynthSpec(n_frames=60, subs=[SynthSub(10, 40, ("Hola, ¿qué tal?",))]))
     run_pipeline(p, synth_config, tmp_path / "o", engine(conf=0.4))
     assert rows(tmp_path / "o" / "events.csv")[0]["needs_review"] == "true"
+
+
+@pytest.mark.parametrize("cancel_after", [5, 20])
+def test_cancel_leaves_no_outputs(boundaries_video, synth_config, tmp_path, cancel_after):
+    from subocr.pipeline import Cancelled
+    p, _ = boundaries_video
+    out, dbg = tmp_path / "o", tmp_path / "dbg"
+    calls = {"n": 0}
+
+    def should_cancel():
+        calls["n"] += 1
+        return calls["n"] > cancel_after
+
+    with pytest.raises(Cancelled):
+        run_pipeline(p, synth_config, out, engine(), debug_dir=dbg, should_cancel=should_cancel)
+    assert not [f for f in out.rglob("*") if f.is_file()]
+    assert not list(dbg.glob("*.png"))

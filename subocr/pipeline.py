@@ -23,6 +23,10 @@ from .video import VideoError, iter_frames
 Progress = Callable[[str, int, "int | None"], None]
 
 
+class Cancelled(Exception):
+    """The caller asked to stop; nothing has been written."""
+
+
 @dataclass(frozen=True)
 class RunResult:
     info: ProbeInfo
@@ -33,8 +37,14 @@ class RunResult:
 
 def run_pipeline(video: Path, cfg: Config, out_dir: Path, engine: OcrEngine,
                  offset: Fraction = Fraction(0), debug_dir: Path | None = None,
-                 progress: Progress | None = None) -> RunResult:
+                 progress: Progress | None = None,
+                 should_cancel: Callable[[], bool] | None = None) -> RunResult:
     report = progress or (lambda stage, done, total: None)
+
+    def check_cancel() -> None:
+        if should_cancel is not None and should_cancel():
+            raise Cancelled()
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     info = probe(video)
@@ -47,6 +57,8 @@ def run_pipeline(video: Path, cfg: Config, out_dir: Path, engine: OcrEngine,
         mask = make_mask(roi.crop(fr.image), roi.ignore, cfg.mask)
         stats.append(FrameStat(fr.index, fr.pts, int(mask.sum()), frame_change(prev, mask)))
         prev = mask
+        if fr.index % 25 == 0:
+            check_cancel()
         if fr.index % 100 == 0:
             report("scanning", fr.index, info.n_frames)
     spans = segment(stats, cfg.segmentation)
@@ -58,26 +70,38 @@ def run_pipeline(video: Path, cfg: Config, out_dir: Path, engine: OcrEngine,
     masks: dict[int, list] = {}
     raw: list[Event] = []
     tmp_images: dict[int, Path] = {}
-    if spans:
-        last_needed = max(owner)
-        for fr in iter_frames(video):
-            if fr.pts != stats[fr.index].pts:
-                raise VideoError("the video decoded differently on the second pass; cannot continue")
-            k = owner.get(fr.index)
-            if k is not None:
-                crop = roi.crop(fr.image).copy()
-                crops.setdefault(k, []).append(crop)
-                masks.setdefault(k, []).append(make_mask(crop, roi.ignore, cfg.mask))
-                if fr.index == samples[k][-1]:
-                    fused = fuse(crops.pop(k), masks.pop(k))
-                    res = engine.read(fused)
-                    raw.append(Event.from_span(k + 1, spans[k], res.text, res.confidence))
-                    if debug_dir is not None:
-                        tmp_images[spans[k].start_frame] = write_debug_image(
-                            Path(debug_dir), 100000 + k + 1, fused)
-                    report("reading text", len(raw), len(spans))
-            if fr.index >= last_needed:
-                break
+
+    def read_spans() -> None:
+        if spans:
+            last_needed = max(owner)
+            for fr in iter_frames(video):
+                if fr.index % 25 == 0:
+                    check_cancel()
+                if fr.pts != stats[fr.index].pts:
+                    raise VideoError("the video decoded differently on the second pass; cannot continue")
+                k = owner.get(fr.index)
+                if k is not None:
+                    crop = roi.crop(fr.image).copy()
+                    crops.setdefault(k, []).append(crop)
+                    masks.setdefault(k, []).append(make_mask(crop, roi.ignore, cfg.mask))
+                    if fr.index == samples[k][-1]:
+                        fused = fuse(crops.pop(k), masks.pop(k))
+                        check_cancel()
+                        res = engine.read(fused)
+                        raw.append(Event.from_span(k + 1, spans[k], res.text, res.confidence))
+                        if debug_dir is not None:
+                            tmp_images[spans[k].start_frame] = write_debug_image(
+                                Path(debug_dir), 100000 + k + 1, fused)
+                        report("reading text", len(raw), len(spans))
+                if fr.index >= last_needed:
+                    break
+
+    try:
+        read_spans()
+    except BaseException:
+        for src in tmp_images.values():  # cancelled or failed: leave no temp images behind
+            src.unlink(missing_ok=True)
+        raise
 
     events = clean_events(raw, cfg.post, cfg.ocr.min_confidence)
 
