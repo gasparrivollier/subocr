@@ -30,6 +30,14 @@ Typical fixes: widen/narrow the ROI, add an exclusion rectangle over the player 
 
 `--offset` is in seconds: `episode_time = recording_time - offset`. Frame numbers are never shifted.
 
+## Windows app
+
+A small window (Snoopy included): choose or drag a video, watch the progress, find the `.srt`.
+User guide: [`packaging/USER_GUIDE.md`](packaging/USER_GUIDE.md). Build and packaging notes:
+[`packaging/README.md`](packaging/README.md). Run it from source with `.venv/bin/python -m subocr.app`.
+The Windows zip is built by the GitHub Actions workflow `.github/workflows/build-windows.yml`
+(manual run or a `v*` tag).
+
 ## Outputs
 
 * `events.csv` — `id, start_frame, end_frame, end_next_frame, start_ts, end_ts, duration_s, text, n_lines, n_chars, cps, confidence, needs_review, start_pts, end_pts, end_next_pts` (UTF-8 with BOM, opens in Excel).
