@@ -1,3 +1,4 @@
+import gc
 import json
 from pathlib import Path
 
@@ -26,7 +27,10 @@ class FakeModel:
 @pytest.fixture(scope="module")
 def qapp():
     from PySide6.QtWidgets import QApplication
-    return QApplication.instance() or QApplication([])
+    app = QApplication.instance() or QApplication([])
+    yield app
+    app.processEvents()
+    gc.collect()  # drop every widget/pixmap while the QApplication still exists
 
 
 @pytest.fixture
@@ -43,6 +47,10 @@ def make_app(qapp):
     for app in made:
         app._on_close()
         app.close()
+        app.deleteLater()
+    made.clear()
+    qapp.processEvents()
+    gc.collect()
 
 
 def text(w):

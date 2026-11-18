@@ -264,3 +264,7 @@ def run() -> None:
     window = App()
     window.show()
     app.exec()
+    window._on_close()
+    window.deleteLater()
+    app.processEvents()
+    del window  # free every widget and pixmap while the QApplication still exists, or Qt crashes at exit
