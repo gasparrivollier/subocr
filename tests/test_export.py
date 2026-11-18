@@ -45,7 +45,8 @@ def test_srt_multiline_and_accents(tmp_path: Path):
     write_srt(p, [ev(text="¿Qué haces?\nNada, niño.", sp=F(3), np_=F(5))])
     raw = p.read_bytes()
     assert not raw.startswith(b"\xef\xbb\xbf")
-    assert raw.decode("utf-8") == "1\n00:00:03,000 --> 00:00:05,000\n¿Qué haces?\nNada, niño.\n\n"
+    # CRLF on every platform (conventional for SRT), so Linux and Windows write identical files
+    assert raw.decode("utf-8") == "1\r\n00:00:03,000 --> 00:00:05,000\r\n¿Qué haces?\r\nNada, niño.\r\n\r\n"
 
 
 def test_csv_roundtrip_hostile_text(tmp_path: Path):

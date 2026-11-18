@@ -50,7 +50,9 @@ def write_srt(path: Path, events: Sequence[Event], offset: Fraction = Fraction(0
             continue  # ended before the episode starts
         start = max(e.start_pts - offset, Fraction(0))
         blocks.append(f"{len(blocks) + 1}\n{format_srt_time(start)} --> {format_srt_time(end)}\n{e.text}\n\n")
-    Path(path).write_text("".join(blocks), encoding="utf-8")
+    # explicit CRLF, written without newline translation: identical bytes on Linux and Windows
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write("".join(blocks).replace("\n", "\r\n"))
 
 
 def write_csv(path: Path, events: Sequence[Event], offset: Fraction = Fraction(0)) -> None:
