@@ -153,7 +153,7 @@
   - Non-GUI, runs everywhere: `test_selftest_json` calls `main(["--selftest", video, outdir])` with a monkeypatched engine factory and checks the JSON line and exit code; `test_selftest_missing_file_exit_1`.
 - [ ] **Step 2: Run** `.venv/bin/pytest tests/test_app_window.py -q`; expect GUI tests FAIL (or SKIP if no display; in that case state so in the ledger) and non-GUI FAIL.
 - [ ] **Step 3: Implement** `window.py`/`__main__.py` (use `ttk`; keep references to `ImageTk.PhotoImage` objects so they are not garbage-collected).
-- [ ] **Step 4: Run** `.venv/bin/pytest -q`; expect PASS. If a display exists, also launch `.venv/bin/python -m subocr.app` once, pick `~/Downloads/prueba_subtitulado_cap1_gaspi.mp4` and capture a screenshot of each state for the user; otherwise say it was not run.
+- [ ] **Step 4: Run** `.venv/bin/pytest -q`; expect PASS. If a display exists, also launch `.venv/bin/python -m subocr.app` once, pick `the real sample video` and capture a screenshot of each state for the user; otherwise say it was not run.
 - [ ] **Step 5: Commit** `feat: Snoopy window and entry point`
 
 ---
