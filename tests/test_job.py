@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -97,7 +98,8 @@ def test_job_unexpected_exception_is_error(video):
     assert last.kind == "error" and "boom" in last.log_path.read_text(encoding="utf-8")
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
+@pytest.mark.skipif(sys.platform == "win32" or os.geteuid() == 0,
+                    reason="directory permissions are not enforced for root or on Windows")
 def test_job_unwritable_destination(tmp_path):
     ro = tmp_path / "ro"
     ro.mkdir()

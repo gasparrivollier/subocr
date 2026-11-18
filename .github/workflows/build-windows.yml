@@ -1,0 +1,54 @@
+name: Build Windows app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write  # needed to attach the zip to a release on version tags
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev,build]"
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build the app (PyInstaller, folder mode)
+        run: pyinstaller packaging/subocr_app.spec --noconfirm
+
+      - name: Smoke test the built app
+        shell: pwsh
+        run: |
+          python packaging/make_smoke_video.py smoke.mp4
+          # A windowed exe returns immediately, so wait for it explicitly.
+          $p = Start-Process -FilePath "dist\subocr\subocr.exe" -ArgumentList "--selftest","smoke.mp4","smoke_out" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content smoke_out\selftest.json -ErrorAction SilentlyContinue; throw "selftest exit code $($p.ExitCode)" }
+          python -c "import json; d = json.load(open('smoke_out/selftest.json', encoding='utf-8')); assert d.get('events') == 2, d; print(d)"
+
+      - name: Zip the app
+        shell: pwsh
+        run: Compress-Archive -Path dist\subocr -DestinationPath subocr-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: subocr-windows
+          path: subocr-windows.zip
+
+      - name: Attach to the GitHub release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: subocr-windows.zip
